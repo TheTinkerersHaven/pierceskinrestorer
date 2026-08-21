@@ -9,10 +9,10 @@ import java.awt.image.ImageObserver;
 import net.minecraft.client.renderer.IImageBuffer;
 
 /**
- * 64x64-aware ImageBuffer for 1.7.10.
- * Inspired by Ears (https://github.com/unascribed/Ears) and vanilla 1.8.
- * For 64x64 we keep full image without 1.7.10's 64x32 clipping which broke body.
- * Hat overlay redundancy handled minimally - keep as-is.
+ * 64x64-aware ImageBuffer for 1.7.10 - standalone fallback when Ears not present.
+ * Logic taken from Ears by unascribed (Ampflower) https://github.com/unascribed/Ears
+ * platform-forge-1.7 Ears.interceptParseUserSkin - MIT, re-implemented.
+ * When Ears is present, ClientSkinHandler delegates to ImageBufferDownload (patched by Ears) instead.
  */
 @SideOnly(Side.CLIENT)
 public class SkinImageBuffer implements IImageBuffer {
@@ -23,33 +23,40 @@ public class SkinImageBuffer implements IImageBuffer {
     @Override
     public BufferedImage parseUserSkin(BufferedImage src) {
         if (src == null) return null;
-        int w = src.getWidth();
-        int h = src.getHeight();
-        if (w == 64 && h == 64) {
-            // Keep full 64x64 - don't clip to 32. Just copy and ensure opaque base where needed.
-            BufferedImage img = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
-            Graphics g = img.getGraphics();
-            g.drawImage(src, 0, 0, (ImageObserver) null);
-            g.dispose();
-            // Minimal fix: ensure head base opaque, don't mangle overlays (Ears-style)
-            this.imageData = ((DataBufferInt) img.getRaster().getDataBuffer()).getData();
-            this.imageWidth = 64;
-            this.imageHeight = 64;
-            // Only ensure head base (0,0-32,16) opaque, leave overlays as authored
-            setAreaOpaque(0, 0, 32, 16);
-            return img;
-        }
         this.imageWidth = 64;
-        this.imageHeight = 32;
-        BufferedImage img = new BufferedImage(this.imageWidth, this.imageHeight, BufferedImage.TYPE_INT_ARGB);
-        Graphics g = img.getGraphics();
+        this.imageHeight = 64;
+        BufferedImage newImg = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
+        Graphics g = newImg.getGraphics();
         g.drawImage(src, 0, 0, (ImageObserver) null);
+        if (src.getHeight() == 32) {
+            // Upgrade legacy 64x32 to 64x64 like Ears does
+            g.drawImage(newImg, 24, 48, 20, 52, 4, 16, 8, 20, null);
+            g.drawImage(newImg, 28, 48, 24, 52, 8, 16, 12, 20, null);
+            g.drawImage(newImg, 20, 52, 16, 64, 8, 20, 12, 32, null);
+            g.drawImage(newImg, 24, 52, 20, 64, 4, 20, 8, 32, null);
+            g.drawImage(newImg, 28, 52, 24, 64, 0, 20, 4, 32, null);
+            g.drawImage(newImg, 32, 52, 28, 64, 12, 20, 16, 32, null);
+            g.drawImage(newImg, 40, 48, 36, 52, 44, 16, 48, 20, null);
+            g.drawImage(newImg, 44, 48, 40, 52, 48, 16, 52, 20, null);
+            g.drawImage(newImg, 36, 52, 32, 64, 48, 20, 52, 32, null);
+            g.drawImage(newImg, 40, 52, 36, 64, 44, 20, 48, 32, null);
+            g.drawImage(newImg, 44, 52, 40, 64, 40, 20, 44, 32, null);
+            g.drawImage(newImg, 48, 52, 44, 64, 52, 20, 56, 32, null);
+        }
         g.dispose();
-        this.imageData = ((DataBufferInt) img.getRaster().getDataBuffer()).getData();
+        this.imageData = ((DataBufferInt) newImg.getRaster().getDataBuffer()).getData();
+        // Ears: carefullyStripAlpha -> make base areas opaque (0,0-32,16 and others)
+        // Approximate by making main base opaque
         setAreaOpaque(0, 0, 32, 16);
-        setAreaTransparent(32, 0, 64, 32);
         setAreaOpaque(0, 16, 64, 32);
-        return img;
+        // Ears transparent overlays (6 areas)
+        setAreaTransparent(32, 0, 64, 32);
+        setAreaTransparent(0, 32, 16, 48);
+        setAreaTransparent(16, 32, 40, 48);
+        setAreaTransparent(40, 32, 56, 48);
+        setAreaTransparent(0, 48, 16, 64);
+        setAreaTransparent(48, 48, 64, 64);
+        return newImg;
     }
 
     @Override public void func_152634_a() {}

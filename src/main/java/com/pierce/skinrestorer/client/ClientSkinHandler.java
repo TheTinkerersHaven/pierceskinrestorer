@@ -6,6 +6,7 @@ import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 import com.mojang.authlib.properties.Property;
 import com.pierce.skinrestorer.PierceSkinRestorer;
 import com.pierce.skinrestorer.network.SkinUpdatePacket;
+import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import java.io.File;
@@ -15,6 +16,8 @@ import java.util.HashMap;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.AbstractClientPlayer;
+import net.minecraft.client.renderer.ImageBufferDownload;
+import net.minecraft.client.renderer.IImageBuffer;
 import net.minecraft.client.renderer.ThreadDownloadImageData;
 import net.minecraft.util.ResourceLocation;
 
@@ -51,7 +54,6 @@ public class ClientSkinHandler {
                     entityProfile.getProperties().put("textures", prop);
                     sessionProfile.getProperties().put("textures", prop);
 
-                    // Try direct 64x64-aware load (fixes body transparency vs vanilla 1.7.10 ImageBufferDownload)
                     try {
                         String jsonStr = new String(Base64.getDecoder().decode(pkt.textureValue), StandardCharsets.UTF_8);
                         JsonObject root = new JsonParser().parse(jsonStr).getAsJsonObject();
@@ -70,12 +72,19 @@ public class ClientSkinHandler {
                             ResourceLocation rl = new ResourceLocation("skins/" + tex.getHash());
                             File skinCache = new File(mc2.mcDataDir, "assets/skins/" + tex.getHash().substring(0, 2));
                             File file2 = new File(skinCache, tex.getHash());
-                            ThreadDownloadImageData data = new ThreadDownloadImageData(file2, url, AbstractClientPlayer.locationStevePng, new SkinImageBuffer());
+                            // Use Ears-patched ImageBufferDownload when Ears present, otherwise our 64x64-aware fallback (Ears-inspired)
+                            IImageBuffer buffer;
+                            if (Loader.isModLoaded("ears")) {
+                                buffer = new ImageBufferDownload();
+                            } else {
+                                buffer = new SkinImageBuffer();
+                            }
+                            ThreadDownloadImageData data = new ThreadDownloadImageData(file2, url, AbstractClientPlayer.locationStevePng, buffer);
                             mc2.getTextureManager().loadTexture(rl, data);
                             if (mc2.thePlayer instanceof AbstractClientPlayer) {
                                 ((AbstractClientPlayer) mc2.thePlayer).func_152121_a(MinecraftProfileTexture.Type.SKIN, rl);
                             }
-                            PierceSkinRestorer.LOGGER.info("Client skin direct-loaded 64x64 fix url=" + url + " model=" + model);
+                            PierceSkinRestorer.LOGGER.info("Client skin direct-loaded url=" + url + " model=" + model + " ears=" + Loader.isModLoaded("ears"));
                             return;
                         }
                     } catch (Exception ex) {
