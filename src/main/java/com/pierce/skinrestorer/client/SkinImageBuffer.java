@@ -10,10 +10,9 @@ import net.minecraft.client.renderer.IImageBuffer;
 
 /**
  * 64x64-aware ImageBuffer for 1.7.10.
- * Vanilla 1.7.10 ImageBufferDownload only handles 64x32 (clips y=32..64).
- * 1.8+ / Ears (https://github.com/unascribed/Ears) correctly handles 64x64 outer layers.
- * This buffer ports the 1.8 logic: keep full 64x64 and handle hat + body/arm/leg overlay transparency.
- * Inspired by Ears / vanilla 1.8, MIT.
+ * Inspired by Ears (https://github.com/unascribed/Ears) and vanilla 1.8.
+ * For 64x64 we keep full image without 1.7.10's 64x32 clipping which broke body.
+ * Hat overlay redundancy handled minimally - keep as-is.
  */
 @SideOnly(Side.CLIENT)
 public class SkinImageBuffer implements IImageBuffer {
@@ -27,24 +26,17 @@ public class SkinImageBuffer implements IImageBuffer {
         int w = src.getWidth();
         int h = src.getHeight();
         if (w == 64 && h == 64) {
+            // Keep full 64x64 - don't clip to 32. Just copy and ensure opaque base where needed.
             BufferedImage img = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
             Graphics g = img.getGraphics();
             g.drawImage(src, 0, 0, (ImageObserver) null);
             g.dispose();
+            // Minimal fix: ensure head base opaque, don't mangle overlays (Ears-style)
             this.imageData = ((DataBufferInt) img.getRaster().getDataBuffer()).getData();
             this.imageWidth = 64;
             this.imageHeight = 64;
-            setAreaTransparent(32, 0, 64, 16);
-            setAreaTransparent(0, 32, 16, 48);
-            setAreaTransparent(16, 32, 32, 48);
-            setAreaTransparent(32, 32, 48, 48);
-            setAreaTransparent(48, 32, 64, 48);
-            setAreaTransparent(0, 48, 16, 64);
-            setAreaTransparent(16, 48, 32, 64);
-            setAreaTransparent(32, 48, 48, 64);
-            setAreaTransparent(48, 48, 64, 64);
+            // Only ensure head base (0,0-32,16) opaque, leave overlays as authored
             setAreaOpaque(0, 0, 32, 16);
-            setAreaOpaque(0, 16, 32, 32);
             return img;
         }
         this.imageWidth = 64;
