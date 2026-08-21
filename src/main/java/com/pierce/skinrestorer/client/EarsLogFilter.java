@@ -17,21 +17,20 @@ public class EarsLogFilter {
                 @Override public void write(int b) { origErr.write(b); }
                 @Override public void write(byte[] b, int off, int len) { origErr.write(b, off, len); }
             }, true) {
-                @Override public void println(String x) {
-                    if (shouldSuppress(x)) return;
-                    origErr.println(x);
-                }
-                @Override public void println(Object x) {
-                    if (shouldSuppress(String.valueOf(x))) return;
-                    origErr.println(x);
-                }
+                @Override public void println(String x) { if (shouldSuppress(x)) return; origErr.println(x); }
+                @Override public void println(Object x) { if (shouldSuppress(String.valueOf(x))) return; origErr.println(x); }
+                @Override public void print(String s) { if (shouldSuppress(s)) return; origErr.print(s); }
+                @Override public void print(Object obj) { if (shouldSuppress(String.valueOf(obj))) return; origErr.print(obj); }
                 private boolean shouldSuppress(String s) {
                     if (s == null) return false;
-                    if (s.contains("Ears lookup thread") && (s.contains("Profile lookup failed") || s.contains("Cannot invoke \"java.io.InputStream.close()\"") || s.contains("LegacyHelper"))) return true;
                     String thread = Thread.currentThread().getName();
-                    if (thread != null && thread.contains("Ears lookup thread")) {
-                        if (s.contains("NullPointerException") || s.contains("HTTP.processResponse") || s.contains("SessionService.fillProfileProperties") || s.contains("LegacyHelper.getSkinUrl")) return true;
+                    boolean isEarsThread = thread != null && thread.contains("Ears lookup thread");
+                    if (isEarsThread) {
+                        if (s.contains("com.unascribed.ears") || s.contains("Profile lookup failed") || s.contains("NullPointerException") || s.contains("Cannot invoke") || s.contains("HTTP.performGetRequest") || s.contains("HTTP.makeRequest") || s.contains("LegacyHelper") || s.contains("SessionService")) return true;
                     }
+                    // Fallback: even if thread check fails, drop Ears legacy spam
+                    if (s.contains("com.unascribed.ears.legacy") && (s.contains("NullPointerException") || s.contains("at Launch//"))) return true;
+                    if (s.contains("[Ears] Profile lookup failed")) return true;
                     return false;
                 }
             };
@@ -43,8 +42,15 @@ public class EarsLogFilter {
             }, true) {
                 @Override public void println(String x) {
                     String thread = Thread.currentThread().getName();
-                    if (thread != null && thread.contains("Ears lookup thread") && x != null && x.contains("Profile lookup failed")) return;
+                    boolean isEarsThread = thread != null && thread.contains("Ears lookup thread");
+                    if (isEarsThread && x != null && (x.contains("com.unascribed.ears") || x.contains("Profile lookup failed"))) return;
                     origOut.println(x);
+                }
+                @Override public void print(String s) {
+                    String thread = Thread.currentThread().getName();
+                    boolean isEarsThread = thread != null && thread.contains("Ears lookup thread");
+                    if (isEarsThread && s != null && s.contains("Profile lookup failed")) return;
+                    origOut.print(s);
                 }
             };
             System.setOut(filteredOut);

@@ -23,7 +23,7 @@ import java.io.File;
 
 /**
  * Pierce Skin Restorer - Universal (server + client companion for self-view)
- * GTNH 2.8.4 Compatible. 1.0.15: use Ears for layers, suppress Ears offline lookup spam via filter (drop, not move)
+ * GTNH 2.8.4 Compatible. 1.0.16: use Ears for layers, suppress Ears offline lookup spam via filter (drop, not move)
  */
 @Mod(
     modid = PierceSkinRestorer.MODID,
@@ -37,7 +37,7 @@ public class PierceSkinRestorer {
 
     public static final String MODID = "pierceskinrestorer";
     public static final String NAME = "Pierce Skin Restorer";
-    public static final String VERSION = "1.0.15";
+    public static final String VERSION = "1.0.16";
 
     @Instance(MODID)
     public static PierceSkinRestorer instance;
@@ -48,7 +48,7 @@ public class PierceSkinRestorer {
 
     @EventHandler
     public void preInit(FMLPreInitializationEvent event) {
-        LOGGER.info("Pierce Skin Restorer Pre-Initialization (Universal 1.0.15)");
+        LOGGER.info("Pierce Skin Restorer Pre-Initialization (Universal 1.0.16)");
         ModConfig.init(new File(event.getModConfigurationDirectory(), MODID + ".cfg"));
         dataDir = new File(event.getModConfigurationDirectory().getParentFile(), "skinrestorer");
         SkinStorage.init(dataDir);
