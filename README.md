@@ -157,3 +157,4 @@ MIT License - Feel free to use, modify, and distribute.
 
 - Mojang for the skin/profile APIs
 - GTNH team for the amazing modpack
+- [Ears](https://github.com/unascribed/Ears) by `unascribed` (Ampflower) - MIT Licensed - inspiration for `1.8` outer layers (`bipedBodyWear`/`ArmWear`/`LegWear`) backport to `1.7.10` (`WearLayerHandler`, `SkinImageBuffer` `64x64` handling). This mod re-implements wear boxes (`16,32`/`40,32`/`48,48`/`0,32`/`0,48` `+0.25F`) based on Ears' approach, not copied verbatim.

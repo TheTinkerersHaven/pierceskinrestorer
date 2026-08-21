@@ -8,6 +8,13 @@ import net.minecraft.client.model.ModelBiped;
 import net.minecraft.client.model.ModelRenderer;
 import net.minecraftforge.client.event.RenderPlayerEvent;
 
+/**
+ * 1.8 wear layers backport for 1.7.10.
+ * Inspired by Ears by unascribed (Ampflower) - https://github.com/unascribed/Ears (MIT)
+ * This implementation re-creates the 1.8 ModelPlayer wear boxes (16,32 / 40,32 / 48,48 / 0,32 / 0,48 +0.25F)
+ * and renders them in RenderPlayerEvent.Specials.Post. Not a verbatim copy.
+ * Thanks to Ears for documenting the offsets and double-layer approach.
+ */
 @SideOnly(Side.CLIENT)
 public class WearLayerHandler {
 
@@ -64,5 +71,6 @@ public class WearLayerHandler {
         dst.rotationPointY = src.rotationPointY;
         dst.rotationPointZ = src.rotationPointZ;
         dst.mirror = src.mirror;
+        dst.isHidden = src.isHidden;
     }
 }
