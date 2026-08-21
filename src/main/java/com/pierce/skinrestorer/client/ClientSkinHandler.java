@@ -54,6 +54,19 @@ public class ClientSkinHandler {
                     entityProfile.getProperties().put("textures", prop);
                     sessionProfile.getProperties().put("textures", prop);
 
+                    boolean earsLoaded = Loader.isModLoaded("ears");
+                    // If Ears Fifth Edition present, delegate to its pipeline (preprocessSkin + carefullyStripAlpha)
+                    // Just trigger SkinManager which Ears patches (Strife interceptSetAreaOpaque) - don't do direct download
+                    if (earsLoaded) {
+                        if (mc2.thePlayer instanceof AbstractClientPlayer) {
+                            AbstractClientPlayer acp = (AbstractClientPlayer) mc2.thePlayer;
+                            mc2.func_152342_ad().func_152790_a(entityProfile, acp, true);
+                            PierceSkinRestorer.LOGGER.info("Client skin delegated to Ears (Fifth-Edition) pipeline");
+                        }
+                        return;
+                    }
+
+                    // Standalone fallback: direct 64x64-aware load (Ears-inspired 6 areas + legacy upgrade)
                     try {
                         String jsonStr = new String(Base64.getDecoder().decode(pkt.textureValue), StandardCharsets.UTF_8);
                         JsonObject root = new JsonParser().parse(jsonStr).getAsJsonObject();
@@ -72,19 +85,13 @@ public class ClientSkinHandler {
                             ResourceLocation rl = new ResourceLocation("skins/" + tex.getHash());
                             File skinCache = new File(mc2.mcDataDir, "assets/skins/" + tex.getHash().substring(0, 2));
                             File file2 = new File(skinCache, tex.getHash());
-                            // Use Ears-patched ImageBufferDownload when Ears present, otherwise our 64x64-aware fallback (Ears-inspired)
-                            IImageBuffer buffer;
-                            if (Loader.isModLoaded("ears")) {
-                                buffer = new ImageBufferDownload();
-                            } else {
-                                buffer = new SkinImageBuffer();
-                            }
+                            IImageBuffer buffer = new SkinImageBuffer();
                             ThreadDownloadImageData data = new ThreadDownloadImageData(file2, url, AbstractClientPlayer.locationStevePng, buffer);
                             mc2.getTextureManager().loadTexture(rl, data);
                             if (mc2.thePlayer instanceof AbstractClientPlayer) {
                                 ((AbstractClientPlayer) mc2.thePlayer).func_152121_a(MinecraftProfileTexture.Type.SKIN, rl);
                             }
-                            PierceSkinRestorer.LOGGER.info("Client skin direct-loaded url=" + url + " model=" + model + " ears=" + Loader.isModLoaded("ears"));
+                            PierceSkinRestorer.LOGGER.info("Client skin direct-loaded fallback url=" + url + " model=" + model);
                             return;
                         }
                     } catch (Exception ex) {
