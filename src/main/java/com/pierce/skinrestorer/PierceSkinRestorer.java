@@ -7,6 +7,7 @@ import com.pierce.skinrestorer.network.NetworkHandler;
 import com.pierce.skinrestorer.network.SkinPacketHandler;
 import com.pierce.skinrestorer.skin.SkinStorage;
 import cpw.mods.fml.common.FMLCommonHandler;
+import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.Mod.EventHandler;
 import cpw.mods.fml.common.Mod.Instance;
@@ -22,8 +23,7 @@ import java.io.File;
 
 /**
  * Pierce Skin Restorer - Universal (server + client companion for self-view)
- * Server restores others via S0C injection. Client companion restores self via custom packet.
- * GTNH 2.8.4 Compatible.
+ * GTNH 2.8.4 Compatible. 1.0.15: use Ears for layers, suppress Ears offline lookup spam via filter (drop, not move)
  */
 @Mod(
     modid = PierceSkinRestorer.MODID,
@@ -37,7 +37,7 @@ public class PierceSkinRestorer {
 
     public static final String MODID = "pierceskinrestorer";
     public static final String NAME = "Pierce Skin Restorer";
-    public static final String VERSION = "1.0.14";
+    public static final String VERSION = "1.0.15";
 
     @Instance(MODID)
     public static PierceSkinRestorer instance;
@@ -48,11 +48,13 @@ public class PierceSkinRestorer {
 
     @EventHandler
     public void preInit(FMLPreInitializationEvent event) {
-        LOGGER.info("Pierce Skin Restorer Pre-Initialization (Universal 1.0.10)");
+        LOGGER.info("Pierce Skin Restorer Pre-Initialization (Universal 1.0.15)");
         ModConfig.init(new File(event.getModConfigurationDirectory(), MODID + ".cfg"));
         dataDir = new File(event.getModConfigurationDirectory().getParentFile(), "skinrestorer");
         SkinStorage.init(dataDir);
         NetworkHandler.init();
+        // Use Ears for layers, suppress its offline lookup spam (drop, not move)
+        try { if (event.getSide().isClient() && Loader.isModLoaded("ears")) com.pierce.skinrestorer.client.EarsLogFilter.install(); } catch (Exception ignored) {}
     }
 
     @EventHandler
@@ -61,11 +63,13 @@ public class PierceSkinRestorer {
         PlayerEventHandler handler = new PlayerEventHandler();
         MinecraftForge.EVENT_BUS.register(handler);
         FMLCommonHandler.instance().bus().register(handler);
-        // Client wear layers (jacket/sleeves/pants) - only on client
+        // Wear backport only if Ears not present (avoid double)
         try {
-            if (event.getSide().isClient()) {
+            if (event.getSide().isClient() && !Loader.isModLoaded("ears")) {
                 MinecraftForge.EVENT_BUS.register(new com.pierce.skinrestorer.client.WearLayerHandler());
-                LOGGER.info("Wear layer handler registered (outer layers for 64x64 skins)");
+                LOGGER.info("Wear layer handler registered (Ears not detected)");
+            } else if (event.getSide().isClient()) {
+                LOGGER.info("Ears detected - using Ears for wear layers, skipping built-in");
             }
         } catch (Exception e) {
             LOGGER.debug("Wear layer register failed: " + e.getMessage());
