@@ -11,8 +11,8 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.Packet;
 import net.minecraft.network.play.server.S0CPacketSpawnPlayer;
+import net.minecraft.network.play.server.S38PacketPlayerListItem;
 import net.minecraft.server.MinecraftServer;
-
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -193,6 +193,9 @@ public class SkinPacketHandler {
                 if (packet instanceof S0CPacketSpawnPlayer) {
                     return processSpawnPacket((S0CPacketSpawnPlayer) packet);
                 }
+                if (packet instanceof S38PacketPlayerListItem) {
+                    return processListItemPacket((S38PacketPlayerListItem) packet);
+                }
             } catch (Exception e) {
                 PierceSkinRestorer.LOGGER.debug("Error processing packet: " + e.getMessage());
             }
@@ -203,73 +206,102 @@ public class SkinPacketHandler {
             if (spawnPlayerProfileField == null) {
                 return packet;
             }
-
             try {
                 GameProfile originalProfile = (GameProfile) spawnPlayerProfileField.get(packet);
                 if (originalProfile == null) {
                     return packet;
                 }
-
-                // Get modified profile with skin data
                 GameProfile modifiedProfile = SkinManager.getModifiedProfile(originalProfile);
-
                 if (modifiedProfile != null && modifiedProfile != originalProfile) {
                     spawnPlayerProfileField.set(packet, modifiedProfile);
                     PierceSkinRestorer.LOGGER.debug("Injected skin into spawn packet for " + originalProfile.getName());
                 }
-
             } catch (Exception e) {
                 PierceSkinRestorer.LOGGER.debug("Error processing spawn packet: " + e.getMessage());
+            }
+            return packet;
+        }
+
+        private S38PacketPlayerListItem processListItemPacket(S38PacketPlayerListItem packet) {
+            try {
+                Field gpField = findFieldByType(packet.getClass(), GameProfile.class);
+                if (gpField != null) {
+                    GameProfile original = (GameProfile) gpField.get(packet);
+                    if (original != null) {
+                        GameProfile modified = SkinManager.getModifiedProfile(original);
+                        if (modified != null && modified != original) {
+                            gpField.set(packet, modified);
+                            PierceSkinRestorer.LOGGER.debug("Injected skin into S38 for " + original.getName());
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                PierceSkinRestorer.LOGGER.debug("Error processing S38 packet: " + e.getMessage());
             }
             return packet;
         }
     }
 
     /**
-     * Force refresh a player's skin for all online players.
-     * This respawns the player entity for other clients.
+     * Force refresh a player's skin for all online players, INCLUDING self (self-view).
+     * For others: destroy+spawn. For self: tab-list REMOVE/ADD + respawn trick.
      */
     public static void refreshPlayerSkin(final EntityPlayerMP targetPlayer) {
         if (targetPlayer == null || targetPlayer.playerNetServerHandler == null) {
-            return; // Player disconnected
+            return;
         }
-
         MinecraftServer server = MinecraftServer.getServer();
         if (server == null) {
             return;
         }
-
-        // Get all online players - copy to avoid ConcurrentModificationException
         List<?> playerList;
         synchronized (server.getConfigurationManager().playerEntityList) {
             playerList = new java.util.ArrayList<Object>(server.getConfigurationManager().playerEntityList);
         }
-
         for (Object obj : playerList) {
             EntityPlayerMP viewer = (EntityPlayerMP) obj;
-
             if (viewer == targetPlayer) {
-                continue; // Skip the target player themselves
+                continue;
             }
-
-            // Check if the viewer can see the target (same world, within distance)
             if (viewer.worldObj == targetPlayer.worldObj) {
                 double distance = viewer.getDistanceToEntity(targetPlayer);
-                if (distance < 256) { // Within render distance
-                    // Remove and re-add the player entity for this viewer
-                    // This triggers a new spawn packet which our handler will intercept
+                if (distance < 512) {
                     viewer.playerNetServerHandler.sendPacket(
                         new net.minecraft.network.play.server.S13PacketDestroyEntities(targetPlayer.getEntityId())
                     );
-
-                    // Send spawn packet - our handler will inject the skin
                     viewer.playerNetServerHandler.sendPacket(
                         new S0CPacketSpawnPlayer(targetPlayer)
                     );
                 }
             }
         }
-
-        PierceSkinRestorer.LOGGER.info("Refreshed skin display for " + targetPlayer.getCommandSenderName());
+        try {
+            int ping = 0;
+            try { ping = targetPlayer.ping; } catch (Exception ignored) {}
+            String name = targetPlayer.getCommandSenderName();
+            S38PacketPlayerListItem removePacket = new S38PacketPlayerListItem(name, false, 9999);
+            S38PacketPlayerListItem addPacket = new S38PacketPlayerListItem(name, true, ping);
+            server.getConfigurationManager().sendPacketToAllPlayers(removePacket);
+            server.getConfigurationManager().sendPacketToAllPlayers(addPacket);
+            try {
+                targetPlayer.playerNetServerHandler.sendPacket(
+                    new net.minecraft.network.play.server.S07PacketRespawn(
+                        targetPlayer.dimension,
+                        targetPlayer.worldObj.difficultySetting,
+                        targetPlayer.worldObj.getWorldInfo().getTerrainType(),
+                        targetPlayer.theItemInWorldManager.getGameType()
+                    )
+                );
+                targetPlayer.playerNetServerHandler.setPlayerLocation(
+                    targetPlayer.posX, targetPlayer.posY, targetPlayer.posZ,
+                    targetPlayer.rotationYaw, targetPlayer.rotationPitch
+                );
+            } catch (Exception e) {
+                PierceSkinRestorer.LOGGER.debug("Self respawn trick failed (non-fatal): " + e.getMessage());
+            }
+        } catch (Exception e) {
+            PierceSkinRestorer.LOGGER.debug("Self-view tab update failed: " + e.getMessage());
+        }
+        PierceSkinRestorer.LOGGER.info("Refreshed skin display for " + targetPlayer.getCommandSenderName() + " (including self)");
     }
 }

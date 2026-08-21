@@ -1,5 +1,6 @@
 buildscript {
     repositories {
+        mavenLocal()
         mavenCentral()
         maven {
             name = "forge"
@@ -21,7 +22,7 @@ buildscript {
 
 apply plugin: 'com.gtnewhorizons.retrofuturagradle'
 
-version = "1.0.6"
+version = "1.0.6-selfview"
 group = "com.pierce.skinrestorer"
 archivesBaseName = "PierceSkinRestorer"
 
@@ -34,10 +35,10 @@ minecraft {
     injectedTags.put("VERSION", project.version)
 }
 
-// Java 8 compatibility
+// GTNH 2.8.4 uses Java 17+
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(8))
+        languageVersion.set(JavaLanguageVersion.of(17))
     }
 }
 
