@@ -3,6 +3,7 @@ package com.pierce.skinrestorer;
 import com.pierce.skinrestorer.command.SkinCommand;
 import com.pierce.skinrestorer.config.ModConfig;
 import com.pierce.skinrestorer.handler.PlayerEventHandler;
+import com.pierce.skinrestorer.network.NetworkHandler;
 import com.pierce.skinrestorer.network.SkinPacketHandler;
 import com.pierce.skinrestorer.skin.SkinStorage;
 import cpw.mods.fml.common.FMLCommonHandler;
@@ -20,13 +21,9 @@ import org.apache.logging.log4j.Logger;
 import java.io.File;
 
 /**
- * Pierce Skin Restorer - Server-Side Only
- *
- * Restores player skins on offline mode servers by injecting
- * skin texture data into GameProfiles sent to clients.
- *
- * Compatible with GregTech: New Horizons 2.8.4
- * No client mod required - works with vanilla clients!
+ * Pierce Skin Restorer - Universal (server + client companion for self-view)
+ * Server restores others via S0C injection. Client companion restores self via custom packet.
+ * GTNH 2.8.4 Compatible.
  */
 @Mod(
     modid = PierceSkinRestorer.MODID,
@@ -34,13 +31,13 @@ import java.io.File;
     version = PierceSkinRestorer.VERSION,
     acceptedMinecraftVersions = "[1.7.10]",
     dependencies = "required-after:Forge@[10.13.4.1614,)",
-    acceptableRemoteVersions = "*"  // Server-side only - client doesn't need this mod
+    acceptableRemoteVersions = "*"
 )
 public class PierceSkinRestorer {
 
     public static final String MODID = "pierceskinrestorer";
     public static final String NAME = "Pierce Skin Restorer";
-    public static final String VERSION = "1.0.4";
+    public static final String VERSION = "1.0.7";
 
     @Instance(MODID)
     public static PierceSkinRestorer instance;
@@ -51,34 +48,26 @@ public class PierceSkinRestorer {
 
     @EventHandler
     public void preInit(FMLPreInitializationEvent event) {
-        LOGGER.info("Pierce Skin Restorer Pre-Initialization (Server-Side Only)");
-
-        // Initialize config
+        LOGGER.info("Pierce Skin Restorer Pre-Initialization (Universal 1.0.7)");
         ModConfig.init(new File(event.getModConfigurationDirectory(), MODID + ".cfg"));
-
-        // Initialize skin storage
         dataDir = new File(event.getModConfigurationDirectory().getParentFile(), "skinrestorer");
         SkinStorage.init(dataDir);
+        NetworkHandler.init();
     }
 
     @EventHandler
     public void init(FMLInitializationEvent event) {
         LOGGER.info("Pierce Skin Restorer Initialization");
-
-        // Register event handlers
         PlayerEventHandler handler = new PlayerEventHandler();
         MinecraftForge.EVENT_BUS.register(handler);
         FMLCommonHandler.instance().bus().register(handler);
-
-        LOGGER.info("Pierce Skin Restorer loaded successfully - Server-side only, no client mod needed!");
+        LOGGER.info("Pierce Skin Restorer loaded - self-view via companion when installed on client!");
     }
 
     @EventHandler
     public void serverStarting(FMLServerStartingEvent event) {
         LOGGER.info("Registering /skin command");
         event.registerServerCommand(new SkinCommand());
-
-        // Initialize packet handler for skin injection
         SkinPacketHandler.init();
     }
 

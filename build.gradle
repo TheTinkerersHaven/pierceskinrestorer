@@ -22,7 +22,7 @@ buildscript {
 
 apply plugin: 'com.gtnewhorizons.retrofuturagradle'
 
-version = "1.0.6-selfview"
+version = "1.0.7"
 group = "com.pierce.skinrestorer"
 archivesBaseName = "PierceSkinRestorer"
 

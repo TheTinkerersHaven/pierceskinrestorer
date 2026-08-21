@@ -3,7 +3,9 @@ package com.pierce.skinrestorer.skin;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import com.pierce.skinrestorer.PierceSkinRestorer;
+import com.pierce.skinrestorer.network.NetworkHandler;
 import com.pierce.skinrestorer.network.SkinPacketHandler;
+import com.pierce.skinrestorer.network.SkinUpdatePacket;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 
@@ -58,6 +60,8 @@ public class SkinManager {
 
         // Refresh skin for all viewers
         SkinPacketHandler.refreshPlayerSkin(player);
+        // Companion: push texture to self client for self-view (offline name != premium)
+        try { NetworkHandler.INSTANCE.sendTo(new SkinUpdatePacket(skinData.textureValue, skinData.textureSignature, false), player); } catch (Exception e) { PierceSkinRestorer.LOGGER.debug("Failed to send self skin packet: "+e.getMessage()); }
 
         PierceSkinRestorer.LOGGER.info("Successfully set skin for " + playerName + " to " + skinUsername);
         return true;
@@ -83,6 +87,7 @@ public class SkinManager {
 
         // Refresh skin for all viewers (will now show default)
         SkinPacketHandler.refreshPlayerSkin(player);
+        try { NetworkHandler.INSTANCE.sendTo(new SkinUpdatePacket(null, null, true), player); } catch (Exception e) { PierceSkinRestorer.LOGGER.debug("Failed to send clear packet: "+e.getMessage()); }
     }
 
     /**
@@ -117,6 +122,7 @@ public class SkinManager {
 
         // Refresh for viewers
         SkinPacketHandler.refreshPlayerSkin(player);
+        try { NetworkHandler.INSTANCE.sendTo(new SkinUpdatePacket(skinData.textureValue, skinData.textureSignature, false), player); } catch (Exception e) { PierceSkinRestorer.LOGGER.debug("Failed to send reload packet: "+e.getMessage()); }
 
         return true;
     }
@@ -162,8 +168,8 @@ public class SkinManager {
                             profileCache.put(playerUUID, modifiedProfile);
 
                             // Refresh skin - this sends packets which is safe from any thread
-                            // The packet sending internally handles thread safety
                             SkinPacketHandler.refreshPlayerSkin(player);
+                            try { NetworkHandler.INSTANCE.sendTo(new SkinUpdatePacket(fetchedData.textureValue, fetchedData.textureSignature, false), player); } catch (Exception e) { PierceSkinRestorer.LOGGER.debug("Failed to send join skin packet: "+e.getMessage()); }
                         }
                     }
                 }, "SkinFetch-Join-" + playerName).start();
