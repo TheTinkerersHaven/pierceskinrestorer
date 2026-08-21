@@ -37,7 +37,7 @@ public class PierceSkinRestorer {
 
     public static final String MODID = "pierceskinrestorer";
     public static final String NAME = "Pierce Skin Restorer";
-    public static final String VERSION = "1.0.8";
+    public static final String VERSION = "1.0.10";
 
     @Instance(MODID)
     public static PierceSkinRestorer instance;
@@ -48,7 +48,7 @@ public class PierceSkinRestorer {
 
     @EventHandler
     public void preInit(FMLPreInitializationEvent event) {
-        LOGGER.info("Pierce Skin Restorer Pre-Initialization (Universal 1.0.8)");
+        LOGGER.info("Pierce Skin Restorer Pre-Initialization (Universal 1.0.10)");
         ModConfig.init(new File(event.getModConfigurationDirectory(), MODID + ".cfg"));
         dataDir = new File(event.getModConfigurationDirectory().getParentFile(), "skinrestorer");
         SkinStorage.init(dataDir);
@@ -61,6 +61,15 @@ public class PierceSkinRestorer {
         PlayerEventHandler handler = new PlayerEventHandler();
         MinecraftForge.EVENT_BUS.register(handler);
         FMLCommonHandler.instance().bus().register(handler);
+        // Client wear layers (jacket/sleeves/pants) - only on client
+        try {
+            if (event.getSide().isClient()) {
+                MinecraftForge.EVENT_BUS.register(new com.pierce.skinrestorer.client.WearLayerHandler());
+                LOGGER.info("Wear layer handler registered (outer layers for 64x64 skins)");
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Wear layer register failed: " + e.getMessage());
+        }
         LOGGER.info("Pierce Skin Restorer loaded - self-view via companion when installed on client!");
     }
 

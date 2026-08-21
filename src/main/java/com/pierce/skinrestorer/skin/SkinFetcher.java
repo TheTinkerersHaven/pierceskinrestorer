@@ -45,21 +45,29 @@ public class SkinFetcher {
      * Get Mojang UUID from username.
      */
     public static String getUUIDFromUsername(String username) {
-        HttpURLConnection conn = null;
-        BufferedReader reader = null;
-        try {
-            URL url = new URL(MOJANG_UUID_API + username);
-            conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(TIMEOUT);
-            conn.setReadTimeout(TIMEOUT);
-            conn.setRequestProperty("User-Agent", "PierceSkinRestorer/1.0");
+        for (int attempt = 0; attempt < 3; attempt++) {
+            HttpURLConnection conn = null;
+            BufferedReader reader = null;
+            try {
+                URL url = new URL(MOJANG_UUID_API + username);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(TIMEOUT);
+                conn.setReadTimeout(TIMEOUT);
+                conn.setRequestProperty("User-Agent", "PierceSkinRestorer/1.0");
 
-            int responseCode = conn.getResponseCode();
-            if (responseCode != 200) {
-                PierceSkinRestorer.LOGGER.debug("Mojang UUID API returned " + responseCode + " for " + username);
-                return null;
-            }
+                int responseCode = conn.getResponseCode();
+                if (responseCode == 429) {
+                    String retry = conn.getHeaderField("Retry-After");
+                    long wait = retry != null ? (Long.parseLong(retry) * 1000L) : 1500L * (attempt + 1);
+                    PierceSkinRestorer.LOGGER.warn("Mojang UUID API rate limited (429) for " + username + ", retry " + (attempt+1) + " in " + wait + "ms");
+                    Thread.sleep(wait);
+                    continue;
+                }
+                if (responseCode != 200) {
+                    PierceSkinRestorer.LOGGER.debug("Mojang UUID API returned " + responseCode + " for " + username);
+                    return null;
+                }
 
             reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
             StringBuilder response = new StringBuilder();
@@ -77,7 +85,12 @@ public class SkinFetcher {
                 return uuid;
             }
 
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            return null;
         } catch (Exception e) {
+            PierceSkinRestorer.LOGGER.warn("Error getting UUID for username: " + username + " attempt " + (attempt+1) + ": " + e.getMessage());
+            if (attempt < 2) { try { Thread.sleep(1500L*(attempt+1)); } catch (InterruptedException ie2) { Thread.currentThread().interrupt(); return null; } continue; }
             PierceSkinRestorer.LOGGER.error("Error getting UUID for username: " + username, e);
         } finally {
             if (reader != null) {
@@ -90,7 +103,7 @@ public class SkinFetcher {
                 conn.disconnect();
             }
         }
-
+        }
         return null;
     }
 
@@ -99,6 +112,7 @@ public class SkinFetcher {
      * This returns the signed texture property that can be used in GameProfiles.
      */
     private static SkinData fetchProfileTextures(String uuid) {
+        for (int attempt = 0; attempt < 3; attempt++) {
         HttpURLConnection conn = null;
         BufferedReader reader = null;
         try {
@@ -111,6 +125,13 @@ public class SkinFetcher {
             conn.setRequestProperty("User-Agent", "PierceSkinRestorer/1.0");
 
             int responseCode = conn.getResponseCode();
+            if (responseCode == 429) {
+                String retry = conn.getHeaderField("Retry-After");
+                long wait = retry != null ? (Long.parseLong(retry) * 1000L) : 1500L * (attempt + 1);
+                PierceSkinRestorer.LOGGER.warn("Mojang profile API rate limited (429) for UUID " + uuid + ", retry " + (attempt+1) + " in " + wait + "ms");
+                Thread.sleep(wait);
+                continue;
+            }
             if (responseCode != 200) {
                 PierceSkinRestorer.LOGGER.warn("Mojang profile API returned " + responseCode + " for UUID " + uuid);
                 return null;
@@ -149,7 +170,12 @@ public class SkinFetcher {
                 }
             }
 
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            return null;
         } catch (Exception e) {
+            PierceSkinRestorer.LOGGER.warn("Error fetching profile for UUID: " + uuid + " attempt " + (attempt+1) + ": " + e.getMessage());
+            if (attempt < 2) { try { Thread.sleep(1500L*(attempt+1)); } catch (InterruptedException ie2) { Thread.currentThread().interrupt(); return null; } continue; }
             PierceSkinRestorer.LOGGER.error("Error fetching profile for UUID: " + uuid, e);
         } finally {
             if (reader != null) {
@@ -162,7 +188,7 @@ public class SkinFetcher {
                 conn.disconnect();
             }
         }
-
+        }
         return null;
     }
 
