@@ -1,160 +1,65 @@
-# Pierce Skin Restorer
+# Pierce Skin Restorer - Universal (GTNH 1.7.10)
 
-A **server-side only** Minecraft 1.7.10 Forge mod that restores player skins on offline mode servers.
+Universal fork of [williampierce-hue/pierceskinrestorer](https://github.com/williampierce-hue/pierceskinrestorer) for GregTech: New Horizons 2.8.4 (Forge 10.13.4.1614, Java 17+). Restores skins on offline-mode servers - **others** see your skin server-only, **self** sees it with the same jar on client (+ optional [Ears](https://git.sleeping.town/exa.mods/Ears-Fifth-Edition) Fifth-Edition for full 1.8 layers).
 
-**No client mod required!** Works with vanilla clients and is compatible with GregTech: New Horizons (GTNH) 2.8.4.
-
-## Download
-
-**[Download Latest Release](https://github.com/williampierce-hue/pierceskinrestorer/releases/latest)**
+> **Download:** https://github.com/TheTinkerersHaven/pierceskinrestorer-universal/releases
+> * `server-latest` = stable server (`PierceSkinRestorer-server-latest.jar` `50K`) - only moves on server logic. Use for server auto-update without restarts.
+> * `client-latest` = latest client (`PierceSkinRestorer-client-latest.jar` `54K`) - moves on every visual fix.
+> * `v1.0.x` = frozen snapshots. `Latest` badge = `client-latest`.
 
 ## Features
 
-- **Server-side only** - Players don't need to install anything
-- **Works with vanilla clients** - No client mod required
-- **Instant skin updates** - Other players see your new skin immediately
-- **Command-based**: `/skin set <username>` to use any Minecraft account's skin
-- **Persistent storage** - Skin preferences survive server restarts
-- **GTNH compatible** - Tested with GregTech: New Horizons 2.8.4
+- **Others see you** server-only via `S0CPacketSpawnPlayer` `GameProfile` injection (vanilla client, no mod)
+- **You see yourself** with same jar on client: `SkinUpdatePacket` (`textureValue`+`signature`) -> injects into `thePlayer` + `Session` `GameProfile` -> `ThreadDownloadImageData` `64x64` aware
+- **64x64 modern skins** fixed: `SkinImageBuffer` replicates `Ears` `6` overlay areas (`32,0-64,32` etc) + `10x` legacy `32->64` upgrade (vanilla 1.7.10 clipped to `64x32` -> rainbow half-grey/holes)
+- **Outer layers** (`jacket/sleeves/pants`): `WearLayerHandler` `bipedBodyWear`/`ArmWear`/`LegWear` `+0.25F` when `Ears` not present; if [Ears Fifth-Edition](https://git.sleeping.town/exa.mods/Ears-Fifth-Edition) is present, skips built-in and lets Ears render (avoids double)
+- **Ears offline spam dropped** (not moved): `NullPointerException` `Cannot invoke InputStream.close()` `Profile lookup failed` on `Ears lookup thread` for `offline` `UUID`s (`809b...`) is filtered via `System.err` `PrintStream` - logs stay in `fml-client-latest.log`, just not spammed
+- **Mojang 429 retry**: `SkinFetcher` retries `3x` with `Retry-After` backoff for `api.mojang.com` + `sessionserver.mojang.com` `OVER_LIMIT`
+- **Persistent** `skinrestorer/skins.json` + `GTNH` compatible, `acceptableRemoteVersions="*"` (client `1.0.16` vs server `1.0.10` skew ok)
 
-## How It Works
+## Installation
 
-When a player sets their skin, the server:
-1. Fetches the skin texture data from Mojang's API
-2. Stores the preference in a JSON file
-3. Injects the skin data into player spawn packets sent to other clients
-4. Other players' vanilla clients automatically display the correct skin
+### Server (stable)
+```bash
+curl -L -o mods/PierceSkinRestorer-server-latest.jar https://github.com/TheTinkerersHaven/pierceskinrestorer-universal/releases/download/server-latest/PierceSkinRestorer-server-latest.jar
+```
+Restart once. Auto-update on restart with same `curl` line. No need to restart on client-only fixes.
 
-**Note:** You will NOT see your own skin change - only other players see your updated skin. This is a Minecraft limitation (your local client renders your own player model using local data, not server packets).
+### Client (GTNH 1.7.10 Prism)
+*With Ears (recommended for full layers):* `Prism > Instance > Mods > Add` `Ears` `forge-1.7` `1.4.7+` Fifth-Edition + `PierceSkinRestorer-client-latest.jar`
+*Without Ears:* just `PierceSkinRestorer-client-latest.jar` (layers via built-in `WearLayerHandler`, hat always)
+
+Prism auto-update: `Edit > Settings > Custom Commands > Pre-launch command`:
+```bash
+bash -c "curl -sL -o mods/PierceSkinRestorer-client-latest.jar https://github.com/TheTinkerersHaven/pierceskinrestorer-universal/releases/download/client-latest/PierceSkinRestorer-client-latest.jar"
+```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `/skin set <username>` | Set your skin to any Minecraft account's skin |
-| `/skin clear` | Remove your custom skin |
-| `/skin reload` | Refresh your skin from Mojang |
-| `/skin <player> set <username>` | (Admin) Set another player's skin |
+| `/skin set <username>` | Use any Mojang account's skin |
+| `/skin clear` | Reset to Steve |
+| `/skin reload` | Refresh from Mojang |
+| `/skin <player> set <username>` | Admin |
 
-### Examples
-
-```
-/skin set Notch          - Use Notch's skin
-/skin set jeb_           - Use Jeb's skin
-/skin clear              - Reset to default
-```
-
-## Installation
-
-### Requirements
-- Minecraft 1.7.10
-- Minecraft Forge 10.13.4.1614 or compatible
-- Java 8+ (Java 17+ recommended for GTNH 2.8.4)
-
-### Server Installation
-1. Download the latest `PierceSkinRestorer-x.x.x.jar` from [Releases](https://github.com/williampierce-hue/pierceskinrestorer/releases/latest)
-2. Place in your server's `mods/` folder
-3. Restart the server
-4. Done! Players can now use `/skin` command
-
-**Players do NOT need to install anything** - other players will see their skins automatically.
-
-## Building from Source
+## Building
 
 ```bash
-# Clone the repository
-git clone https://github.com/williampierce-hue/pierceskinrestorer.git
-cd pierceskinrestorer
-
-# Set up ForgeGradle (first time only)
-./gradlew setupDecompWorkspace
-
-# Build the mod
-./gradlew build
+git clone https://github.com/TheTinkerersHaven/pierceskinrestorer-universal.git
+cd pierceskinrestorer-universal
+# Requires JDK8 (for patched MC) + JDK17 toolchain, RetroFuturaGradle 1.3.33
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk
+./gradlew clean build
+# -> build/libs/PierceSkinRestorer-1.0.x.jar (universal, 50K)
 ```
-
-The JAR will be at `build/libs/PierceSkinRestorer-x.x.x.jar`
-
-## Configuration
-
-Config file: `config/pierceskinrestorer.cfg`
-
-```properties
-# Timeout for fetching skins from Mojang API (seconds)
-I:fetchTimeoutSeconds=10
-
-# Require OP permission to use /skin command
-B:requirePermission=false
-
-# Enable debug logging
-B:logDebug=false
-```
-
-## Data Storage
-
-Skin preferences are stored in `skinrestorer/skins.json`:
-
-```json
-{
-  "player-uuid-here": {
-    "playerName": "Steve",
-    "skinSource": "Notch",
-    "skinType": "MOJANG_USERNAME",
-    "lastUpdated": 1705766400000
-  }
-}
-```
-
-## GTNH Compatibility
-
-This mod is designed to be fully compatible with GTNH 2.8.4:
-
-- **No core mod** - Uses standard Forge events only
-- **No client mod** - Server-side packet manipulation
-- **No conflicts** - Doesn't touch rendering code
-- **Lightweight** - Minimal memory footprint
-
-## Limitations
-
-- **Mojang usernames only** - The username must exist on Mojang's servers
-- **No custom URL skins** - Vanilla clients only download from Mojang CDN
-- **You cannot see your own skin** - Other players see your skin, but you will always see your default skin (Minecraft limitation - your client renders your own model using local data, not server packets)
-
-## Troubleshooting
-
-### "Failed to fetch skin" error
-- The username doesn't exist or has no skin set
-- Mojang API may be temporarily unavailable
-- Check server logs for details
-
-### Skin not showing for other players
-- Wait for the player to respawn or rejoin
-- The server may still be fetching the skin data
-- Try `/skin reload`
-
-### API Rate Limits
-Mojang's API has rate limits (~200 requests/minute). If you have many players setting skins simultaneously, some requests may fail temporarily.
-
-## Technical Details
-
-The mod works by:
-1. Intercepting `S0CPacketSpawnPlayer` packets before they're sent to other players
-2. Modifying the `GameProfile` to include skin texture properties
-3. Other players' vanilla clients receive the modified profile and download the skin
-
-This approach requires no client-side code because the vanilla Minecraft client already knows how to:
-- Read texture properties from GameProfiles
-- Download skin textures from Mojang's CDN
-- Apply skins to player models
-
-**Why you can't see your own skin:** The spawn packet is only sent when one player appears in another player's view. Your own client never receives a spawn packet for yourself - it uses your local GameProfile directly.
-
-## License
-
-MIT License - Feel free to use, modify, and distribute.
 
 ## Credits
 
-- Mojang for the skin/profile APIs
-- GTNH team for the amazing modpack
-- [Ears](https://github.com/unascribed/Ears) by `unascribed` (Ampflower) - MIT Licensed - inspiration for `1.8` outer layers (`bipedBodyWear`/`ArmWear`/`LegWear`) backport to `1.7.10` (`WearLayerHandler`, `SkinImageBuffer` `64x64` handling). This mod re-implements wear boxes (`16,32`/`40,32`/`48,48`/`0,32`/`0,48` `+0.25F`) based on Ears' approach, not copied verbatim.
+- Mojang skin/profile APIs, GTNH team
+- [Ears](https://git.sleeping.town/exa.mods/Ears-Fifth-Edition) / [Ears](https://github.com/unascribed/Ears) by `unascribed` (Ampflower) - MIT - inspiration for `64x64` `6` areas + legacy upgrade and wear boxes `16,32/40,32/48,48/0,32/0,48 +0.25F` (re-implemented, not verbatim)
+- Original [williampierce-hue/pierceskinrestorer](https://github.com/williampierce-hue/pierceskinrestorer) MIT
+
+## License
+
+MIT
